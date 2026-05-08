@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python *)",
+      "Bash(start *)",
+      "Bash(curl *)",
+      "Bash(bash test-system.sh)",
+      "Bash(pkill -f \"python.*main.py\")",
+      "Bash(taskkill /F /IM python.exe)",
+      "Bash(taskkill //F //IM python.exe)",
+      "Bash(timeout 8 bash -c 'until curl -s http://localhost:5000/api/health > /dev/null 2>&1; do sleep 1; done && echo \"Server is ready!\"')",
+      "PowerShell(Get-Process *)"
+    ]
+  }
+}

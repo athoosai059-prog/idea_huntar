@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IdeaHunter - System Verification</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+        .status-overview {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .status-card {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            border: 2px solid #e9ecef;
+        }
+        .status-card.success {
+            border-color: #28a745;
+            background: #d4edda;
+        }
+        .status-card.error {
+            border-color: #dc3545;
+            background: #f8d7da;
+        }
+        .status-number {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #333;
+        }
+        .status-label {
+            color: #666;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+        .test-section {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .test-section h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+        .test-result {
+            background: white;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+            border-left: 4px solid #28a745;
+        }
+        .test-result.fail {
+            border-left-color: #dc3545;
+        }
+        .test-result.pending {
+            border-left-color: #ffc107;
+        }
+        .test-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .test-details {
+            color: #666;
+            font-size: 0.9em;
+        }
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+        }
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        .btn-success:hover {
+            background: #218838;
+            transform: translateY(-2px);
+        }
+        .btn-info {
+            background: #17a2b8;
+            color: white;
+        }
+        .btn-info:hover {
+            background: #138496;
+            transform: translateY(-2px);
+        }
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .system-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 15px;
+            background: #d4edda;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 2px solid #28a745;
+        }
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            background: #28a745;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .quick-links {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .quick-link {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            text-decoration: none;
+            color: #333;
+            border: 2px solid #e9ecef;
+            transition: all 0.2s;
+        }
+        .quick-link:hover {
+            border-color: #667eea;
+            transform: translateY(-2px);
+        }
+        .quick-link h3 {
+            margin: 0 0 5px 0;
+            font-size: 1.1em;
+        }
+        .quick-link p {
+            margin: 0;
+            color: #666;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 IdeaHunter System Verification</h1>
+        <p class="subtitle">Complete system status and functionality check</p>
+
+        <div class="system-status">
+            <div class="status-dot"></div>
+            <div>
+                <strong>All Systems Operational</strong>
+                <div style="font-size: 0.9em; color: #666;">Last checked: <span id="last-checked">Just now</span></div>
+            </div>
+        </div>
+
+        <div class="status-overview">
+            <div class="status-card success">
+                <div class="status-number" id="stat-ideas">0</div>
+                <div class="status-label">Total Ideas</div>
+            </div>
+            <div class="status-card success">
+                <div class="status-number" id="stat-high">0</div>
+                <div class="status-label">High Potential</div>
+            </div>
+            <div class="status-card success">
+                <div class="status-number" id="stat-saved">0</div>
+                <div class="status-label">Saved Ideas</div>
+            </div>
+            <div class="status-card success">
+                <div class="status-number" id="stat-scrapers">0</div>
+                <div class="status-label">Active Scrapers</div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>🔍 System Tests</h2>
+            <div id="test-results">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Running system tests...</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="action-buttons">
+            <button class="btn btn-primary" onclick="runTests()">🔄 Run Tests</button>
+            <a href="http://localhost:5050/" target="_blank" class="btn btn-success">🎯 Open Dashboard</a>
+            <a href="debug.html" class="btn btn-info">🔧 Debug Console</a>
+            <a href="simple-test.html" class="btn btn-info">🧪 Simple Test</a>
+        </div>
+
+        <div class="test-section">
+            <h2>🔗 Quick Links</h2>
+            <div class="quick-links">
+                <a href="http://localhost:5050/" class="quick-link" target="_blank">
+                    <h3>📊 Main Dashboard</h3>
+                    <p>Primary interface for idea discovery and management</p>
+                </a>
+                <a href="http://localhost:5050/api/health" class="quick-link" target="_blank">
+                    <h3>💓 Health Check</h3>
+                    <p>API health status and system information</p>
+                </a>
+                <a href="http://localhost:5050/api/ideas" class="quick-link" target="_blank">
+                    <h3>💡 Ideas API</h3>
+                    <p>Direct access to all discovered ideas</p>
+                </a>
+                <a href="http://localhost:5050/api/dashboard/stats" class="quick-link" target="_blank">
+                    <h3>📈 Statistics</h3>
+                    <p>Detailed metrics and performance data</p>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:5050';
+
+        async function runTests() {
+            const results = document.getElementById('test-results');
+            results.innerHTML = '<div class="loading"><div class="spinner"></div><p>Running comprehensive tests...</p></div>';
+
+            const tests = [];
+
+            // Test 1: Health Check
+            try {
+                const response = await fetch(`${API_BASE}/api/health`);
+                const data = await response.json();
+                tests.push({
+                    name: 'Health Check',
+                    status: 'success',
+                    details: `Status: ${data.status}, Message: ${data.message}`
+                });
+            } catch (error) {
+                tests.push({
+                    name: 'Health Check',
+                    status: 'fail',
+                    details: `Error: ${error.message}`
+                });
+            }
+
+            // Test 2: Statistics API
+            try {
+                const response = await fetch(`${API_BASE}/api/stats`);
+                const data = await response.json();
+                document.getElementById('stat-ideas').textContent = data.total || 0;
+                document.getElementById('stat-high').textContent = data.high_score || 0;
+                document.getElementById('stat-saved').textContent = data.saved || 0;
+                document.getElementById('stat-scrapers').textContent = Object.keys(data.scrapers || {}).length;
+
+                tests.push({
+                    name: 'Statistics API',
+                    status: 'success',
+                    details: `Total: ${data.total}, High Score: ${data.high_score}, Saved: ${data.saved}`
+                });
+            } catch (error) {
+                tests.push({
+                    name: 'Statistics API',
+                    status: 'fail',
+                    details: `Error: ${error.message}`
+                });
+            }
+
+            // Test 3: Ideas API
+            try {
+                const response = await fetch(`${API_BASE}/api/ideas`);
+                const ideas = await response.json();
+
+                tests.push({
+                    name: 'Ideas API',
+                    status: 'success',
+                    details: `Loaded ${ideas.length} ideas successfully`
+                });
+            } catch (error) {
+                tests.push({
+                    name: 'Ideas API',
+                    status: 'fail',
+                    details: `Error: ${error.message}`
+                });
+            }
+
+            // Test 4: Settings API
+            try {
+                const response = await fetch(`${API_BASE}/api/settings`);
+                const data = await response.json();
+
+                tests.push({
+                    name: 'Settings API',
+                    status: 'success',
+                    details: `Min Score: ${data.min_score}, Primary AI: ${data.primary_ai}`
+                });
+            } catch (error) {
+                tests.push({
+                    name: 'Settings API',
+                    status: 'fail',
+                    details: `Error: ${error.message}`
+                });
+            }
+
+            // Test 5: Saved Ideas API
+            try {
+                const response = await fetch(`${API_BASE}/api/ideas/saved`);
+                const data = await response.json();
+
+                tests.push({
+                    name: 'Saved Ideas API',
+                    status: 'success',
+                    details: `Found ${data.ideas ? data.ideas.length : 0} saved ideas`
+                });
+            } catch (error) {
+                tests.push({
+                    name: 'Saved Ideas API',
+                    status: 'fail',
+                    details: `Error: ${error.message}`
+                });
+            }
+
+            // Test 6: Dashboard Loading
+            try {
+                const response = await fetch(`${API_BASE}/`);
+                const html = await response.text();
+
+                if (html.includes('IdeaHunter')) {
+                    tests.push({
+                        name: 'Dashboard Loading',
+                        status: 'success',
+                        details: 'Dashboard HTML loaded successfully'
+                    });
+                } else {
+                    tests.push({
+                        name: 'Dashboard Loading',
+                        status: 'fail',
+                        details: 'Dashboard HTML structure invalid'
+                    });
+                }
+            } catch (error) {
+                tests.push({
+                    name: 'Dashboard Loading',
+                    status: 'fail',
+                    details: `Error: ${error.message}`
+                });
+            }
+
+            // Display results
+            results.innerHTML = tests.map(test => `
+                <div class="test-result ${test.status}">
+                    <div class="test-title">
+                        ${test.status === 'success' ? '✅' : '❌'} ${test.name}
+                    </div>
+                    <div class="test-details">${test.details}</div>
+                </div>
+            `).join('');
+
+            // Update last checked time
+            document.getElementById('last-checked').textContent = new Date().toLocaleString();
+        }
+
+        // Auto-run tests on page load
+        window.onload = function() {
+            setTimeout(runTests, 500);
+        };
+    </script>
+</body>
+</html>

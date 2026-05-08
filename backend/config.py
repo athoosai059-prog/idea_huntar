@@ -11,10 +11,19 @@ class Settings:
     CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-3-5-sonnet-20241022")
     
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-    GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+    GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
     
-    # "gemini" or "anthropic"
-    PRIMARY_AI = os.getenv("PRIMARY_AI", "gemini")
+    GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+    GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+    
+    TOGETHER_API_KEY = os.getenv("TOGETHER_API_KEY", "")
+    TOGETHER_MODEL = os.getenv("TOGETHER_MODEL", "meta-llama/Llama-3.3-70B-Instruct-Turbo")
+    
+    CEREBRAS_API_KEY = os.getenv("CEREBRAS_API_KEY", "")
+    CEREBRAS_MODEL = os.getenv("CEREBRAS_MODEL", "llama3.3-70b")
+    
+    # "gemini", "anthropic", "groq", "together", or "cerebras"
+    PRIMARY_AI = os.getenv("PRIMARY_AI", "groq")
     
     REDDIT_CLIENT_ID = os.getenv("REDDIT_CLIENT_ID", "")
     REDDIT_CLIENT_SECRET = os.getenv("REDDIT_CLIENT_SECRET", "")
@@ -32,7 +41,10 @@ class Settings:
         load_dotenv(dotenv_path=env_path, override=True)
         self.ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
         self.GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-        self.PRIMARY_AI = os.getenv("PRIMARY_AI", "gemini")
+        self.GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+        self.TOGETHER_API_KEY = os.getenv("TOGETHER_API_KEY", "")
+        self.CEREBRAS_API_KEY = os.getenv("CEREBRAS_API_KEY", "")
+        self.PRIMARY_AI = os.getenv("PRIMARY_AI", "groq")
         self.MIN_IDEA_SCORE = float(os.getenv("MIN_IDEA_SCORE", "6.0"))
         self.TARGET_KEYWORDS = os.getenv("TARGET_KEYWORDS", "")
 

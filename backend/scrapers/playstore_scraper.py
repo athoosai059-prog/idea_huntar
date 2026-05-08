@@ -1,4 +1,7 @@
 from google_play_scraper import reviews, Sort
+from backend.utils.logging_config import get_logger
+
+log = get_logger(__name__)
 
 # Apps to mine — competitors in your target niche
 TARGET_APPS = [
@@ -9,9 +12,13 @@ TARGET_APPS = [
 ]
 
 def run():
+    """Scrape Play Store reviews for potential app ideas."""
+    log.info("Starting Play Store scraper...")
+
     posts = []
     for app_id in TARGET_APPS:
         try:
+            log.debug(f"Scraping reviews for app: {app_id}")
             result, _ = reviews(
                 app_id,
                 lang='en', country='us',
@@ -34,8 +41,10 @@ def run():
                         "thumbs_up": r.get('thumbsUpCount', 0)
                     }
                 })
-        except Exception as e:
-            print(f"Play Store scraper error for {app_id}: {e}")
 
-    print(f"Play Store: collected {len(posts)} reviews")
+        except Exception as e:
+            log.error(f"Play Store scraper error for {app_id}: {e}")
+            continue
+
+    log.info(f"Play Store: collected {len(posts)} reviews")
     return posts

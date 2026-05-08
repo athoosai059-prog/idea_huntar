@@ -1,90 +1,133 @@
 import requests
-from bs4 import BeautifulSoup
-import logging
-import random
+import hashlib
 import time
+import re
+from backend.utils.logging_config import get_logger
 
-log = logging.getLogger(__name__)
+log = get_logger(__name__)
 
-# List of public Nitter instances (mirrors of Twitter)
-NITTER_INSTANCES = [
-    "https://nitter.net",
-    "https://nitter.cz",
-    "https://nitter.it",
-    "https://nitter.privacydev.net",
-    "https://nitter.moomoo.me",
-    "https://nitter.unixfox.eu"
+# Since all Nitter instances are dead and Twitter API costs $100/mo,
+# we use DuckDuckGo HTML search to find recent tweets containing pain-point keywords.
+# This surfaces real Twitter/X posts without any API key.
+
+SEARCH_QUERIES = [
+    'site:twitter.com "i wish there was an app"',
+    'site:twitter.com "why is there no tool"',
+    'site:twitter.com "can someone build"',
+    'site:twitter.com "frustrated with" software',
+    'site:twitter.com "is there an alternative to"',
+    'site:x.com "i need a tool that"',
+    'site:x.com "someone should build"',
+    'site:x.com "looking for an app"',
 ]
 
-def run():
-    """Scrapes Twitter/X using Nitter search feeds for pain points."""
-    results = []
-    queries = [
-        '"i wish there was an app for"',
-        '"is there a tool for"',
-        '"why is there no app that"',
-        '"this software is so bad"',
-        '"can someone build a"'
-    ]
-    
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36"
-    }
+SIGNAL_KEYWORDS = [
+    "wish", "frustrated", "terrible", "broken", "why isn't",
+    "can someone", "nobody built", "need a tool", "looking for",
+    "alternative", "annoying", "hate", "awful"
+]
 
-    for query in queries:
-        # Try up to 3 random instances for each query
-        instances_to_try = random.sample(NITTER_INSTANCES, 3)
-        success = False
+def _search_ddg(query):
+    """Search DuckDuckGo HTML for tweets matching a query."""
+    url = "https://html.duckduckgo.com/html/"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+    }
+    
+    try:
+        response = requests.post(url, data={"q": query}, headers=headers, timeout=15)
+        response.raise_for_status()
+        html = response.text
         
-        for instance in instances_to_try:
-            try:
-                # Search URL format for Nitter
-                search_url = f"{instance}/search?f=tweets&q={query}"
-                log.info(f"Twitter (Nitter): Searching {query} on {instance}...")
-                
-                response = requests.get(search_url, headers=headers, timeout=15)
-                if response.status_code != 200:
-                    log.warning(f"Nitter instance {instance} returned {response.status_code}")
-                    continue
-                    
-                soup = BeautifulSoup(response.text, 'html.parser')
-                # Nitter's main tweet container
-                tweets = soup.find_all('div', class_='timeline-item')
-                
-                if not tweets:
-                    log.warning(f"No tweets found on {instance} for {query}")
-                    continue
-                
-                query_found = 0
-                for tweet in tweets:
-                    content_elem = tweet.find('div', class_='tweet-content')
-                    if not content_elem:
-                        continue
-                        
-                    content = content_elem.get_text().strip()
-                    tweet_link_elem = tweet.find('a', class_='tweet-link')
-                    tweet_id = tweet_link_elem['href'] if tweet_link_elem else content[:20]
-                    
-                    results.append({
-                        "source": "twitter",
-                        "source_id": tweet_id,
-                        "content": content,
-                        "url": instance + tweet_id if tweet_link_elem else ""
-                    })
-                    query_found += 1
-                
-                log.info(f"Twitter: Found {query_found} tweets on {instance}")
-                success = True
-                break # Move to next query
-                
-            except Exception as e:
-                log.error(f"Twitter scraper failed for {query} on {instance}: {e}")
-                continue
+        results = []
+        # Parse snippets from DDG HTML results
+        # Each result has a class "result__snippet" and "result__url"
+        snippet_pattern = re.compile(
+            r'<a[^>]*class="result__snippet"[^>]*>(.*?)</a>',
+            re.DOTALL
+        )
+        url_pattern = re.compile(
+            r'<a[^>]*class="result__url"[^>]*href="([^"]*)"[^>]*>',
+            re.DOTALL
+        )
+        title_pattern = re.compile(
+            r'<a[^>]*class="result__a"[^>]*>(.*?)</a>',
+            re.DOTALL
+        )
         
-        if not success:
-            log.error(f"Failed to scrape Twitter for {query} after trying 3 instances.")
+        snippets = snippet_pattern.findall(html)
+        urls = url_pattern.findall(html)
+        titles = title_pattern.findall(html)
         
-        # Small delay to avoid aggressive rate limiting
-        time.sleep(1)
+        for i in range(min(len(snippets), len(urls))):
+            # Clean HTML tags from snippet
+            snippet = re.sub(r'<[^>]+>', '', snippets[i]).strip()
+            title = re.sub(r'<[^>]+>', '', titles[i]).strip() if i < len(titles) else ""
+            result_url = urls[i].strip()
             
+            # Only keep twitter/x.com results
+            if 'twitter.com' not in result_url and 'x.com' not in result_url:
+                continue
+                
+            results.append({
+                "title": title,
+                "snippet": snippet,
+                "url": result_url
+            })
+        
+        return results
+        
+    except Exception as e:
+        log.warning(f"DDG search failed for '{query}': {e}")
+        return []
+
+def run():
+    """Scrapes Twitter/X pain-point posts via DuckDuckGo search — no API key needed."""
+    log.info("Starting Twitter scraper (via DuckDuckGo search)...")
+
+    results = []
+    seen_urls = set()
+
+    for query in SEARCH_QUERIES:
+        try:
+            log.debug(f"Twitter/DDG: searching '{query}'")
+            search_results = _search_ddg(query)
+            
+            for sr in search_results:
+                url = sr["url"]
+                if url in seen_urls:
+                    continue
+                seen_urls.add(url)
+                
+                content = f"{sr['title']}\n{sr['snippet']}"
+                content_lower = content.lower()
+                
+                # Check for pain-point signals
+                if not any(kw in content_lower for kw in SIGNAL_KEYWORDS):
+                    continue
+                
+                post_id = hashlib.md5(url.encode()).hexdigest()
+                
+                # Normalize URL to twitter.com format
+                twitter_url = url.replace("x.com", "twitter.com")
+                
+                results.append({
+                    "id": f"twitter_{post_id}",
+                    "source": "twitter",
+                    "content": content[:2000],
+                    "url": twitter_url,
+                    "metadata": {
+                        "url": twitter_url,
+                        "query": query
+                    }
+                })
+            
+            log.debug(f"Twitter/DDG: '{query}' -> {len(search_results)} raw, {len(results)} signal posts total")
+            
+        except Exception as e:
+            log.warning(f"Twitter search failed for '{query}': {e}")
+        
+        time.sleep(3)  # Be polite between searches
+
+    log.info(f"Twitter: collected {len(results)} tweets")
     return results
