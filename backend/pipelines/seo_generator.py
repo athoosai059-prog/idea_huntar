@@ -1,41 +1,53 @@
-import logging
+"""
+SEO Generator Pipeline — rewritten to use the multi-provider fallback chain.
+"""
 from backend.config import settings
-from backend.ai.analyzer import _analyze_with_gemini, _analyze_with_anthropic
+from backend.ai.prompts import seo_strategy_prompt
+from backend.utils.logging_config import get_logger
 
-log = logging.getLogger(__name__)
+log = get_logger(__name__)
 
-def generate_seo_brief(idea):
+
+def generate_seo_brief(idea: dict) -> str:
     """
-    Generates a complete SEO plan for a specific tool idea.
+    Generate a complete SEO strategy for a specific idea.
+    Uses the full provider fallback chain (same as analyzer.py).
     """
-    log.info(f"Generating SEO Brief for idea: {idea['name']}")
-    
-    prompt = f"""
-    Create a complete SEO plan and brief for this SaaS/Tool idea:
-    Name: {idea['name']}
-    Description: {idea['description']}
-    Pain Point Solved: {idea['pain_point']}
-    Target Keywords: {idea.get('keywords', [])}
-    
-    Please provide the output in clean, well-structured Markdown format including:
-    1. **Primary Target Keyword & Secondary Keywords**
-    2. **Optimized Meta Title** (under 60 chars)
-    3. **Optimized Meta Description** (under 160 chars)
-    4. **URL Slug Recommendation**
-    5. **H1 and H2 Structure** (Outline for the landing page)
-    6. **FAQ Section** (3-4 common questions with concise, SEO-optimized answers)
-    7. **Schema Markup recommendation** (e.g., SoftwareApplication schema)
-    """
-    
-    order = ["gemini", "anthropic"] if settings.PRIMARY_AI == "gemini" else ["anthropic", "gemini"]
-    for ai_provider in order:
+    from backend.ai.analyzer import (
+        _analyze_with_groq,
+        _analyze_with_together,
+        _analyze_with_cerebras,
+        _analyze_with_moonshot,
+        _analyze_with_nvidia,
+        _analyze_with_gemini,
+        _analyze_with_anthropic,
+    )
+
+    log.info(f"Generating SEO Brief for idea: {idea.get('name', 'Unknown')}")
+    prompt = seo_strategy_prompt(idea)
+
+    primary = settings.PRIMARY_AI or "groq"
+    all_providers = ["groq", "together", "cerebras", "moonshot", "nvidia", "gemini", "anthropic"]
+    order = [primary] + [p for p in all_providers if p != primary]
+
+    provider_funcs = {
+        "groq": _analyze_with_groq,
+        "together": _analyze_with_together,
+        "cerebras": _analyze_with_cerebras,
+        "moonshot": _analyze_with_moonshot,
+        "nvidia": _analyze_with_nvidia,
+        "gemini": _analyze_with_gemini,
+        "anthropic": _analyze_with_anthropic,
+    }
+
+    for ai in order:
         try:
-            if ai_provider == "gemini":
-                return _analyze_with_gemini(prompt)
-            else:
-                return _analyze_with_anthropic(prompt)
+            func = provider_funcs.get(ai)
+            if func:
+                log.info(f"Trying {ai} for SEO Brief...")
+                return func(prompt)
         except Exception as e:
-            log.warning(f"SEO Brief generation failed with {ai_provider}: {e}")
+            log.warning(f"SEO Brief generation failed with {ai}: {e}")
             continue
-            
+
     return "Failed to generate SEO brief. Please check your API keys."

@@ -20,9 +20,15 @@ class Settings:
     TOGETHER_MODEL = os.getenv("TOGETHER_MODEL", "meta-llama/Llama-3.3-70B-Instruct-Turbo")
     
     CEREBRAS_API_KEY = os.getenv("CEREBRAS_API_KEY", "")
-    CEREBRAS_MODEL = os.getenv("CEREBRAS_MODEL", "llama3.3-70b")
+    CEREBRAS_MODEL = os.getenv("CEREBRAS_MODEL", "llama3.1-8b")
     
-    # "gemini", "anthropic", "groq", "together", or "cerebras"
+    MOONSHOT_API_KEY = os.getenv("MOONSHOT_API_KEY", "")
+    MOONSHOT_MODEL = os.getenv("MOONSHOT_MODEL", "moonshot-v1-8k")
+    
+    NVIDIA_API_KEY = os.getenv("NVIDIA_API_KEY", "")
+    NVIDIA_MODEL = os.getenv("NVIDIA_MODEL", "meta/llama-3.1-70b-instruct")
+    
+    # "gemini", "anthropic", "groq", "together", "cerebras", "moonshot", or "nvidia"
     PRIMARY_AI = os.getenv("PRIMARY_AI", "groq")
     
     REDDIT_CLIENT_ID = os.getenv("REDDIT_CLIENT_ID", "")
@@ -44,6 +50,8 @@ class Settings:
         self.GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
         self.TOGETHER_API_KEY = os.getenv("TOGETHER_API_KEY", "")
         self.CEREBRAS_API_KEY = os.getenv("CEREBRAS_API_KEY", "")
+        self.MOONSHOT_API_KEY = os.getenv("MOONSHOT_API_KEY", "")
+        self.NVIDIA_API_KEY = os.getenv("NVIDIA_API_KEY", "")
         self.PRIMARY_AI = os.getenv("PRIMARY_AI", "groq")
         self.MIN_IDEA_SCORE = float(os.getenv("MIN_IDEA_SCORE", "6.0"))
         self.TARGET_KEYWORDS = os.getenv("TARGET_KEYWORDS", "")

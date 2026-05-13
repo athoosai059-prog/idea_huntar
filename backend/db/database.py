@@ -16,7 +16,10 @@ except ImportError:
 load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL")
-IS_POSTGRES = DATABASE_URL and DATABASE_URL.startswith("postgres")
+if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+IS_POSTGRES = DATABASE_URL and (DATABASE_URL.startswith("postgresql://") or DATABASE_URL.startswith("postgres://"))
 DB_PATH = Path(__file__).parent.parent.parent / "ideahunter.db"
 
 def validate_sql_identifier(identifier: str) -> bool:
@@ -422,8 +425,10 @@ def save_research(idea_id, r_type, content):
         return
 
     # Validate research type
-    allowed_types = {'competitors', 'playbook', 'seo_brief', 'growth'}
-    if r_type not in allowed_types:
+    base_types = {'competitors', 'playbook', 'seo_brief', 'growth', 'launch_plan', 'competitor_analysis', 'seo_strategy', 'consensus_plan'}
+    # Also allow provider-suffixed types like "consensus_plan_groq", "seo_strategy_gemini", etc.
+    is_valid = r_type in base_types or any(r_type.startswith(bt + "_") for bt in base_types)
+    if not is_valid:
         return
 
     # Validate content length

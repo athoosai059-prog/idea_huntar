@@ -12,6 +12,16 @@ from functools import wraps
 
 app = Flask(__name__)
 
+# Ensure database is initialized on startup
+from backend.db.database import init_db
+with app.app_context():
+    init_db()
+
+@app.route('/health')
+def health_check():
+    return jsonify({"status": "healthy"}), 200
+
+
 # Base directory for frontend files
 BASE_DIR = Path(__file__).parent.parent.parent
 FRONTEND_DIR = BASE_DIR / "frontend"
@@ -341,9 +351,19 @@ def handle_settings():
                 if key:
                     set_key(str(env_path), "CEREBRAS_API_KEY", key)
 
+            if 'moonshot_key' in data:
+                key = validate_string(data['moonshot_key'], max_length=200)
+                if key:
+                    set_key(str(env_path), "MOONSHOT_API_KEY", key)
+
+            if 'nvidia_key' in data:
+                key = validate_string(data['nvidia_key'], max_length=200)
+                if key:
+                    set_key(str(env_path), "NVIDIA_API_KEY", key)
+
             if 'primary_ai' in data:
                 ai = validate_string(data['primary_ai'], max_length=20)
-                if ai in ['anthropic', 'gemini', 'groq', 'together', 'cerebras']:
+                if ai in ['anthropic', 'gemini', 'groq', 'together', 'cerebras', 'moonshot', 'nvidia']:
                     set_key(str(env_path), "PRIMARY_AI", ai)
 
             if 'min_score' in data:
@@ -366,6 +386,8 @@ def handle_settings():
             "groq_key": settings.GROQ_API_KEY[:10] + "..." if settings.GROQ_API_KEY else "",
             "together_key": settings.TOGETHER_API_KEY[:10] + "..." if settings.TOGETHER_API_KEY else "",
             "cerebras_key": settings.CEREBRAS_API_KEY[:10] + "..." if settings.CEREBRAS_API_KEY else "",
+            "moonshot_key": settings.MOONSHOT_API_KEY[:10] + "..." if settings.MOONSHOT_API_KEY else "",
+            "nvidia_key": settings.NVIDIA_API_KEY[:10] + "..." if settings.NVIDIA_API_KEY else "",
             "primary_ai": settings.PRIMARY_AI,
             "min_score": settings.MIN_IDEA_SCORE,
             "target_keywords": settings.TARGET_KEYWORDS
@@ -393,7 +415,7 @@ def handle_research(idea_id):
             r_type = data.get('type')
 
             # Validate research type
-            allowed_types = {'launch_plan'}
+            allowed_types = {'launch_plan', 'consensus_plan', 'competitor_analysis', 'seo_strategy', 'seo_brief'}
             if r_type not in allowed_types:
                 return error_response(f"Invalid research type. Must be one of: {', '.join(allowed_types)}", 400)
 
@@ -407,15 +429,42 @@ def handle_research(idea_id):
             if r_type == 'launch_plan':
                 from backend.ai.analyzer import generate_launch_plan
                 content = generate_launch_plan(idea)
-            else:
-                return error_response("Invalid research type", 400)
+                save_research(validated_id, r_type, content)
+                return jsonify({"ok": True, "content": content})
 
-            # Sanitize content
-            if isinstance(content, str):
-                content = sanitize_html(content)
+            elif r_type in ('consensus_plan', 'competitor_analysis', 'seo_strategy'):
+                # Multi-AI Consensus Engine
+                from backend.ai.consensus_engine import run_consensus
+                import traceback as _tb
+                try:
+                    result = run_consensus(idea, r_type)
+                except Exception as consensus_err:
+                    app.logger.error(f"Consensus engine crashed: {consensus_err}\n{_tb.format_exc()}")
+                    return error_response(f"Consensus engine error: {str(consensus_err)}", 500)
+                
+                # Save the consensus plan
+                try:
+                    save_research(validated_id, r_type, result['consensus'])
+                    # Save individual plans as separate entries for reference
+                    for provider, plan in result.get('individual_plans', {}).items():
+                        save_research(validated_id, f"{r_type}_{provider}", plan)
+                except Exception as save_err:
+                    app.logger.warning(f"Failed to save research: {save_err}")
+                
+                return jsonify({
+                    "ok": True,
+                    "content": result['consensus'],
+                    "individual_plans": result.get('individual_plans', {}),
+                    "providers_used": result.get('providers_used', 0),
+                    "providers_total": result.get('providers_total', 0),
+                    "confidence": result.get('confidence', 0),
+                })
 
-            save_research(validated_id, r_type, content)
-            return jsonify({"ok": True, "content": content})
+            elif r_type == 'seo_brief':
+                from backend.pipelines.seo_generator import generate_seo_brief
+                content = generate_seo_brief(idea)
+                save_research(validated_id, r_type, content)
+                return jsonify({"ok": True, "content": content})
 
         # GET request - return existing research
         results = get_research(validated_id)
@@ -568,7 +617,4 @@ def add_security_headers(response):
     return response
 
 if __name__ == '__main__':
-    # Ensure database is initialized
-    from backend.db.database import init_db
-    init_db()
     app.run(port=5050, debug=True)

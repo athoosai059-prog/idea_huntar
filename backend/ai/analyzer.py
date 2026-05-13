@@ -108,7 +108,44 @@ def _analyze_with_cerebras(batch_text):
     client = OpenAI(api_key=settings.CEREBRAS_API_KEY, base_url="https://api.cerebras.ai/v1")
     
     response = client.chat.completions.create(
-        model=settings.CEREBRAS_MODEL or "llama3.3-70b",
+        model=settings.CEREBRAS_MODEL or "llama3.1-8b",
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": f"Analyze these posts and return the source field exactly as given in each post header: {batch_text}"}
+        ],
+        max_tokens=4096,
+        temperature=0.3,
+    )
+    return response.choices[0].message.content
+
+def _analyze_with_moonshot(batch_text):
+    """Analyze batch using Moonshot AI (Kimi)."""
+    if not settings.MOONSHOT_API_KEY:
+        raise Exception("Moonshot API Key missing")
+
+    log.debug("Using Moonshot AI for analysis...")
+    client = OpenAI(api_key=settings.MOONSHOT_API_KEY, base_url="https://api.moonshot.cn/v1")
+    
+    response = client.chat.completions.create(
+        model=settings.MOONSHOT_MODEL or "moonshot-v1-8k",
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": f"Analyze these posts and return the source field exactly as given in each post header: {batch_text}"}
+        ],
+        temperature=0.3,
+    )
+    return response.choices[0].message.content
+
+def _analyze_with_nvidia(batch_text):
+    """Analyze batch using NVIDIA NIM."""
+    if not settings.NVIDIA_API_KEY:
+        raise Exception("NVIDIA API Key missing")
+
+    log.debug("Using NVIDIA NIM for analysis...")
+    client = OpenAI(api_key=settings.NVIDIA_API_KEY, base_url="https://integrate.api.nvidia.com/v1")
+    
+    response = client.chat.completions.create(
+        model=settings.NVIDIA_MODEL or "meta/llama-3.1-70b-instruct",
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": f"Analyze these posts and return the source field exactly as given in each post header: {batch_text}"}
@@ -156,7 +193,7 @@ def analyze_batch(posts):
 
     # Build provider fallback order based on PRIMARY_AI setting
     primary = settings.PRIMARY_AI or "groq"
-    all_providers = ["groq", "together", "cerebras", "gemini", "anthropic"]
+    all_providers = ["groq", "together", "cerebras", "moonshot", "nvidia", "gemini", "anthropic"]
     # Put primary first, then the rest
     order = [primary] + [p for p in all_providers if p != primary]
 
@@ -174,6 +211,10 @@ def analyze_batch(posts):
                 raw_response = _analyze_with_together(batch_text)
             elif ai_provider == "cerebras":
                 raw_response = _analyze_with_cerebras(batch_text)
+            elif ai_provider == "moonshot":
+                raw_response = _analyze_with_moonshot(batch_text)
+            elif ai_provider == "nvidia":
+                raw_response = _analyze_with_nvidia(batch_text)
             else:
                 continue
 
@@ -312,7 +353,7 @@ Your output MUST be a highly structured Markdown document with the following sec
 Output in clean, professional Markdown."""
 
     primary = settings.PRIMARY_AI or "groq"
-    all_providers = ["groq", "together", "cerebras", "gemini", "anthropic"]
+    all_providers = ["groq", "together", "cerebras", "moonshot", "nvidia", "gemini", "anthropic"]
     order = [primary] + [p for p in all_providers if p != primary]
     for ai in order:
         try:
@@ -326,6 +367,10 @@ Output in clean, professional Markdown."""
                 return _analyze_with_together(prompt)
             elif ai == "cerebras":
                 return _analyze_with_cerebras(prompt)
+            elif ai == "moonshot":
+                return _analyze_with_moonshot(prompt)
+            elif ai == "nvidia":
+                return _analyze_with_nvidia(prompt)
         except Exception as e:
             log.warning(f"Failed to generate A-Z Launch Plan using {ai}: {e}")
             continue

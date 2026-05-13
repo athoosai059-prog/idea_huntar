@@ -280,6 +280,48 @@
   .research-badge { background: var(--primary-glow); color: var(--primary-bright); font-size: 11px; font-weight: 800; padding: 4px 12px; border-radius: 20px; text-transform: uppercase; }
   .research-content { font-size: 15px; color: var(--text-muted); line-height: 1.8; white-space: pre-wrap; }
 
+  /* RESEARCH TABS */
+  .research-tabs { display: flex; gap: 8px; margin-bottom: 24px; flex-wrap: wrap; }
+  .research-tab {
+    display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px;
+    border-radius: var(--radius-sm); cursor: pointer; font-size: 13px; font-weight: 700;
+    transition: var(--transition); border: 1px solid var(--surface-border);
+    background: rgba(255,255,255,0.02); color: var(--text-muted);
+    font-family: var(--sans);
+  }
+  .research-tab:hover { background: rgba(255,255,255,0.06); border-color: var(--text-dim); color: var(--text); }
+  .research-tab.active { background: var(--primary-glow); color: var(--primary-bright); border-color: rgba(168, 85, 247, 0.3); }
+  .research-tab:disabled { opacity: 0.5; cursor: wait; }
+
+  /* CONFIDENCE BADGE */
+  .confidence-bar {
+    display: flex; align-items: center; gap: 12px; padding: 16px 20px;
+    background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.15);
+    border-radius: var(--radius-sm); margin-bottom: 20px;
+  }
+  .confidence-fill { height: 8px; border-radius: 4px; background: var(--success); transition: width 0.5s ease; }
+  .confidence-track { flex: 1; height: 8px; background: rgba(255,255,255,0.05); border-radius: 4px; overflow: hidden; }
+
+  /* INDIVIDUAL AI PLANS TOGGLE */
+  .ai-plans-toggle {
+    display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px;
+    background: rgba(255,255,255,0.03); border: 1px solid var(--surface-border);
+    border-radius: var(--radius-sm); cursor: pointer; font-size: 12px;
+    color: var(--text-dim); font-weight: 600; transition: var(--transition);
+    margin-bottom: 16px;
+  }
+  .ai-plans-toggle:hover { background: rgba(255,255,255,0.06); color: var(--text-muted); }
+  .ai-plans-container { display: none; }
+  .ai-plans-container.open { display: block; animation: researchIn 0.3s ease; }
+  .ai-plan-card {
+    background: rgba(255,255,255,0.015); border: 1px solid rgba(255,255,255,0.05);
+    border-radius: var(--radius-sm); padding: 20px; margin-bottom: 12px;
+  }
+  .ai-plan-provider {
+    font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;
+    color: var(--accent); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;
+  }
+
   /* ANIMATIONS */
   .pulse { animation: pulse 2s infinite; }
   @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
@@ -459,6 +501,8 @@
                 <option value="groq">Groq (Llama 3.3 70B - FAST)</option>
                 <option value="together">Together AI (Llama 3.3 70B)</option>
                 <option value="cerebras">Cerebras (Llama 3.3 70B)</option>
+                <option value="moonshot">Moonshot AI (Kimi)</option>
+                <option value="nvidia">NVIDIA NIM (Llama 3.1 70B)</option>
                 <option value="gemini">Google Gemini 2.0 Flash</option>
                 <option value="anthropic">Anthropic Claude 3.5</option>
             </select>
@@ -474,6 +518,14 @@
           <div class="settings-group">
             <label class="settings-label">Cerebras API Token</label>
             <input type="password" id="setting-cerebras-key" class="settings-control" placeholder="...">
+          </div>
+          <div class="settings-group">
+            <label class="settings-label">Moonshot AI Token</label>
+            <input type="password" id="setting-moonshot-key" class="settings-control" placeholder="sk-...">
+          </div>
+          <div class="settings-group">
+            <label class="settings-label">NVIDIA API Token</label>
+            <input type="password" id="setting-nvidia-key" class="settings-control" placeholder="nvapi-...">
           </div>
           <div class="settings-group">
             <label class="settings-label">Gemini API Token</label>
@@ -611,7 +663,9 @@ async function fetchSettings() {
         document.getElementById('setting-anthropic-key').value = data.anthropic_key || '';
         document.getElementById('setting-together-key').value = data.together_key || '';
         document.getElementById('setting-cerebras-key').value = data.cerebras_key || '';
-        if(document.getElementById('setting-groq-key')) document.getElementById('setting-groq-key').value = data.groq_key || ''; // Will be empty in UI if not implemented in backend API GET yet
+        document.getElementById('setting-moonshot-key').value = data.moonshot_key || '';
+        document.getElementById('setting-nvidia-key').value = data.nvidia_key || '';
+        if(document.getElementById('setting-groq-key')) document.getElementById('setting-groq-key').value = data.groq_key || '';
         document.getElementById('setting-primary-ai').value = data.primary_ai || 'groq';
         document.getElementById('setting-min-score').value = data.min_score || 6;
         document.getElementById('setting-keywords').value = data.target_keywords || '';
@@ -808,13 +862,33 @@ async function openIdea(id) {
             </div>
         </div>
 
-        <div style="display:flex; gap:16px; margin-bottom:48px;">
+        <div style="display:flex; gap:16px; margin-bottom:32px;">
             <button class="btn btn-ghost" onclick="validateIdea(${idea.id}, this)">⚡ Deep Validate</button>
-            <button class="btn btn-primary" onclick="runResearch(${idea.id}, 'launch_plan', this)">🚀 Generate Launch Plan</button>
             <button class="btn btn-ghost" onclick="dumpIdea(${idea.id}, this)" style="color:var(--error); border-color:var(--error); opacity:0.6;">🗑 Dumb Idea</button>
             <button class="btn ${isSaved ? 'btn-ghost' : 'btn-primary'}" onclick="toggleSave(${idea.id}, this)" style="margin-left:auto;">
                 ${isSaved ? '✓ Shortlisted' : 'Add to Shortlist'}
             </button>
+        </div>
+
+        <div style="background:rgba(255,255,255,0.02); border:1px solid var(--surface-border); border-radius:var(--radius-lg); padding:32px; margin-bottom:32px;">
+            <h3 style="font-size:16px; font-weight:800; color:#fff; margin-bottom:8px; display:flex; align-items:center; gap:10px;">
+                <span style="color:var(--primary-bright);">🧠</span> AI Deep Analysis Suite
+            </h3>
+            <p style="font-size:13px; color:var(--text-dim); margin-bottom:20px;">Each analysis runs across ALL your configured AI providers and synthesizes a consensus from their agreements.</p>
+            <div class="research-tabs">
+                <button class="research-tab" onclick="runConsensusResearch(${idea.id}, 'consensus_plan', this)">
+                    🚀 A-Z Launch Plan
+                </button>
+                <button class="research-tab" onclick="runConsensusResearch(${idea.id}, 'competitor_analysis', this)">
+                    🔍 Competitor Analysis
+                </button>
+                <button class="research-tab" onclick="runConsensusResearch(${idea.id}, 'seo_strategy', this)">
+                    📈 SEO Strategy
+                </button>
+                <button class="research-tab" onclick="runResearch(${idea.id}, 'launch_plan', this)" style="opacity:0.7;">
+                    ⚡ Quick Plan (single AI)
+                </button>
+            </div>
         </div>
 
         <div id="research-container"></div>
@@ -854,26 +928,74 @@ async function openIdea(id) {
     existing.forEach(item => appendResearch(item.type, item.content));
 }
 
-function appendResearch(type, content) {
+function appendResearch(type, content, meta) {
     const container = document.getElementById('research-container');
     if (!container) return;
     
+    // Skip individual provider sub-entries (those are shown inside consensus cards)
+    if (type.includes('_groq') || type.includes('_together') || type.includes('_cerebras') ||
+        type.includes('_moonshot') || type.includes('_nvidia') || type.includes('_gemini') || type.includes('_anthropic')) {
+        return;
+    }
+    
     const safeContent = (typeof content === 'object') ? JSON.stringify(content, null, 2) : content;
+    const typeLabels = {
+        consensus_plan: '🚀 A-Z Launch Plan (Consensus)',
+        competitor_analysis: '🔍 Competitor Analysis (Consensus)',
+        seo_strategy: '📈 SEO Strategy (Consensus)',
+        launch_plan: '⚡ Quick Launch Plan',
+        seo_brief: '📋 SEO Brief',
+    };
+    const label = typeLabels[type] || type.replace(/_/g, ' ');
     
     const div = document.createElement('div');
     div.className = 'research-card';
+    
+    let confidenceHTML = '';
+    if (meta && meta.providers_used) {
+        const pct = Math.round(meta.confidence * 100);
+        confidenceHTML = `
+            <div class="confidence-bar">
+                <span style="font-size:12px; font-weight:700; color:var(--success); white-space:nowrap;">🧠 ${meta.providers_used}/${meta.providers_total} AIs contributed</span>
+                <div class="confidence-track"><div class="confidence-fill" style="width:${pct}%"></div></div>
+                <span style="font-size:12px; font-weight:800; color:var(--success); font-family:var(--mono);">${pct}%</span>
+            </div>`;
+    }
+    
+    let individualPlansHTML = '';
+    if (meta && meta.individual_plans && Object.keys(meta.individual_plans).length > 1) {
+        const planId = 'plans-' + Date.now();
+        individualPlansHTML = `
+            <div class="ai-plans-toggle" onclick="document.getElementById('${planId}').classList.toggle('open'); this.querySelector('.arrow').textContent = document.getElementById('${planId}').classList.contains('open') ? '▼' : '▶';">
+                <span class="arrow">▶</span> View individual AI responses (${Object.keys(meta.individual_plans).length} providers)
+            </div>
+            <div class="ai-plans-container" id="${planId}">
+                ${Object.entries(meta.individual_plans).map(([provider, plan]) => `
+                    <div class="ai-plan-card">
+                        <div class="ai-plan-provider">
+                            <span style="width:8px;height:8px;border-radius:50%;background:var(--accent);display:inline-block;"></span>
+                            ${provider}
+                        </div>
+                        <div class="research-content" style="font-size:13px; max-height:300px; overflow-y:auto;">${plan}</div>
+                    </div>
+                `).join('')}
+            </div>`;
+    }
+    
     div.innerHTML = `
         <div class="research-header">
-            <div class="research-badge">${type.replace('_', ' ')}</div>
+            <div class="research-badge">${label}</div>
             <div style="flex:1; height:1px; background:var(--surface-border);"></div>
         </div>
+        ${confidenceHTML}
         <div class="research-content">${safeContent}</div>
+        ${individualPlansHTML}
     `;
     container.prepend(div);
 }
 
 async function runResearch(id, type, btn) {
-    const oldText = btn.textContent;
+    const oldText = btn.innerHTML;
     btn.innerHTML = `<span class="pulse">●</span> Analyzing...`;
     btn.disabled = true;
     
@@ -886,14 +1008,49 @@ async function runResearch(id, type, btn) {
         const data = await r.json();
         if (data.ok) {
             appendResearch(type, data.content);
-            showToast(`${type.replace('_', ' ').toUpperCase()} analysis complete!`);
+            showToast(`${type.replace(/_/g, ' ').toUpperCase()} analysis complete!`);
         } else {
-            showToast("Neural processing failed", "error");
+            showToast(data.error || "Neural processing failed", "error");
         }
     } catch(e) { showToast("Connection interrupted", "error"); }
     
-    btn.textContent = oldText;
+    btn.innerHTML = oldText;
     btn.disabled = false;
+}
+
+async function runConsensusResearch(id, type, btn) {
+    const oldHTML = btn.innerHTML;
+    btn.innerHTML = `<span class="pulse">●</span> Running all AIs...`;
+    btn.disabled = true;
+    btn.classList.add('active');
+    
+    // Disable all research tabs during processing
+    document.querySelectorAll('.research-tab').forEach(t => t.disabled = true);
+    
+    try {
+        const r = await fetch(`/api/ideas/${id}/research`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({type})
+        });
+        const data = await r.json();
+        if (data.ok) {
+            appendResearch(type, data.content, {
+                providers_used: data.providers_used,
+                providers_total: data.providers_total,
+                confidence: data.confidence,
+                individual_plans: data.individual_plans || {}
+            });
+            showToast(`Consensus ${type.replace(/_/g, ' ')} complete! ${data.providers_used} AIs contributed.`);
+        } else {
+            showToast(data.error || "Consensus analysis failed", "error");
+        }
+    } catch(e) { showToast("Connection interrupted", "error"); }
+    
+    btn.innerHTML = oldHTML;
+    btn.disabled = false;
+    btn.classList.remove('active');
+    document.querySelectorAll('.research-tab').forEach(t => t.disabled = false);
 }
 
 async function toggleSave(id, btn) {
@@ -1054,12 +1211,13 @@ async function saveSettings() {
         anthropic_key: document.getElementById('setting-anthropic-key').value,
         together_key: document.getElementById('setting-together-key').value,
         cerebras_key: document.getElementById('setting-cerebras-key').value,
+        moonshot_key: document.getElementById('setting-moonshot-key').value,
+        nvidia_key: document.getElementById('setting-nvidia-key').value,
         primary_ai: document.getElementById('setting-primary-ai').value,
         min_score: document.getElementById('setting-min-score').value,
         target_keywords: document.getElementById('setting-keywords').value
     };
     
-    // Add groq key if the input exists
     const groqKeyInput = document.getElementById('setting-groq-key');
     if (groqKeyInput && groqKeyInput.value) {
         data.groq_key = groqKeyInput.value;
